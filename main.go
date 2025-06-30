@@ -59,7 +59,8 @@ func createTarball(sourcePath, targetDir string) (string, error) {
 	multiWriter := io.MultiWriter(tempFile, hasher)
 
 	// 5. Set up the chain of writers: file content -> tar -> zstd -> multiWriter
-	zstdWriter, err := zstd.NewWriter(multiWriter)
+	zstdWriter, err := zstd.NewWriter(multiWriter,
+		zstd.WithEncoderLevel(zstd.SpeedBestCompression))
 	if err != nil {
 		return "", fmt.Errorf("failed to create zstd writer: %w", err)
 	}
