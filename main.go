@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"flag"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -13,8 +14,8 @@ import (
 	"github.com/klauspost/compress/zstd"
 )
 
-// CreateDatedZstdTarball takes a source path and a target directory, creates a
-// zstd-compressed tarball of the source, and saves it to the target directory.
+// CreateDatedZstdTarball takes a backups path and a target directory, creates a
+// zstd-compressed tarball of the backups, and saves it to the target directory.
 // A CRC32 hash of the archive's content is always included in the filename
 // (mm-dd-yyyy-crc32hash.tar.zstd) to ensure uniqueness for each revision.
 // It returns true on success and false on any error.
@@ -31,13 +32,13 @@ func CreateDatedZstdTarball(sourcePath, targetDir string) bool {
 // createTarball is the internal implementation that handles the logic and returns
 // the final path of the created archive or a detailed error.
 func createTarball(sourcePath, targetDir string) (string, error) {
-	// 1. Validate source path
+	// 1. Validate backups path
 	sourceInfo, err := os.Stat(sourcePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read source path '%s': %w", sourcePath, err)
+		return "", fmt.Errorf("failed to read backups path '%s': %w", sourcePath, err)
 	}
 	if !sourceInfo.IsDir() {
-		return "", fmt.Errorf("source path '%s' is not a directory", sourcePath)
+		return "", fmt.Errorf("backups path '%s' is not a directory", sourcePath)
 	}
 
 	// 2. Ensure the target directory exists
@@ -66,7 +67,7 @@ func createTarball(sourcePath, targetDir string) (string, error) {
 	}
 	tarWriter := tar.NewWriter(zstdWriter)
 
-	// 6. Walk the source directory and add files to the tarball.
+	// 6. Walk the backups directory and add files to the tarball.
 	walkErr := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -131,8 +132,18 @@ func createTarball(sourcePath, targetDir string) (string, error) {
 
 // main function to demonstrate usage.
 func main() {
-	const sourceDir = "/data"
-	const targetDir = "/backups"
+	sourceDir := "/data"
+	targetDir := "/backups"
+
+	flag.StringVar(&sourceDir, "source", "/data", "The backups location for the data being backed up")
+	flag.StringVar(&targetDir, "target", "/backups", "The directory where backups will be stored")
+
+	flag.Parse()
+
+	if len(os.Getenv("VWBSOURCE")) != 0 && len(os.Getenv("VWBTARGET")) != 0 {
+		sourceDir = os.Getenv("VWBSOURCE")
+		targetDir = os.Getenv("VWBTARGET")
+	}
 
 	log.Println("--- Starting Archive Process ---")
 	success := CreateDatedZstdTarball(sourceDir, targetDir)
@@ -142,10 +153,4 @@ func main() {
 		log.Println("--- Archive process failed. ---")
 	}
 
-	// You could run it a second time with modified data to see a new file
-	// with a different hash get created on the same day.
-
-	// --- Clean up dummy files ---
-	// _ = os.RemoveAll(sourceDir)
-	// _ = os.RemoveAll(targetDir)
 }
