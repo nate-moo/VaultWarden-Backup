@@ -19,8 +19,8 @@ import (
 // A CRC32 hash of the archive's content is always included in the filename
 // (mm-dd-yyyy-crc32hash.tar.zstd) to ensure uniqueness for each revision.
 // It returns true on success and false on any error.
-func CreateDatedZstdTarball(sourcePath, targetDir string) bool {
-	finalPath, err := createTarball(sourcePath, targetDir)
+func CreateDatedZstdTarball(sourcePath, targetDir string, verbose bool) bool {
+	finalPath, err := createTarball(sourcePath, targetDir, verbose)
 	if err != nil {
 		log.Printf("Error creating tarball: %v", err)
 		return false
@@ -31,7 +31,7 @@ func CreateDatedZstdTarball(sourcePath, targetDir string) bool {
 
 // createTarball is the internal implementation that handles the logic and returns
 // the final path of the created archive or a detailed error.
-func createTarball(sourcePath, targetDir string) (string, error) {
+func createTarball(sourcePath, targetDir string, verbose bool) (string, error) {
 	// 1. Validate backups path
 	sourceInfo, err := os.Stat(sourcePath)
 	if err != nil {
@@ -98,7 +98,9 @@ func createTarball(sourcePath, targetDir string) (string, error) {
 		if _, err := io.Copy(tarWriter, file); err != nil {
 			return fmt.Errorf("could not copy file content from '%s' to tar archive: %w", path, err)
 		}
-		log.Printf("Added to archive: %s", header.Name)
+		if verbose == true {
+			log.Printf("Added to archive: %s", header.Name)
+		}
 		return nil
 	})
 
@@ -134,9 +136,11 @@ func createTarball(sourcePath, targetDir string) (string, error) {
 func main() {
 	sourceDir := "/data"
 	targetDir := "/backups"
+	verbose := false
 
 	flag.StringVar(&sourceDir, "source", "/data", "The backups location for the data being backed up")
 	flag.StringVar(&targetDir, "target", "/backups", "The directory where backups will be stored")
+	flag.BoolVar(&verbose, "verbose", false, "Whether or not to log files being added")
 
 	flag.Parse()
 
@@ -146,7 +150,7 @@ func main() {
 	}
 
 	log.Println("--- Starting Archive Process ---")
-	success := CreateDatedZstdTarball(sourceDir, targetDir)
+	success := CreateDatedZstdTarball(sourceDir, targetDir, verbose)
 	if success {
 		log.Println("--- Archive process completed successfully! ---")
 	} else {
